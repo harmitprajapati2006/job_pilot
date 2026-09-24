@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import posthog from "posthog-js";
@@ -14,44 +14,62 @@ const isPostHogConfigured = Boolean(
     process.env.NEXT_PUBLIC_POSTHOG_HOST,
 );
 
+const CANCELLED_MESSAGE = "Sign-in was cancelled or did not complete. Please try again.";
+const GENERIC_FAILURE_MESSAGE = "We could not complete sign-in. Please try again.";
+
+type FailureReason = "provider_error" | "missing_code" | "exchange_failed" | "unexpected_error";
+
 function CallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const handledCallbackRef = useRef<string | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
+    function fail(reason: FailureReason, providerError?: string): void {
+      if (isPostHogConfigured) {
+        posthog.capture("oauth_login_failed", {
+          reason,
+          provider_error: providerError,
+        });
+      }
+      setErrorMsg(reason === "provider_error" ? CANCELLED_MESSAGE : GENERIC_FAILURE_MESSAGE);
+    }
 
-    async function handleOAuthCallback() {
+    async function redirectIfSignedInOrFail(reason: FailureReason): Promise<void> {
+      const { data } = await insforge.auth.getCurrentUser();
+      if (data?.user) {
+        router.replace("/dashboard");
+      } else {
+        fail(reason);
+      }
+    }
+
+    async function handleOAuthCallback(): Promise<void> {
+      // React runs effects twice in development. The PKCE verifier is single-use,
+      // so a second exchange of the same code always fails.
+      const callbackKey = searchParams.toString();
+      if (handledCallbackRef.current === callbackKey) return;
+      handledCallbackRef.current = callbackKey;
+
       const errorParam = searchParams.get("error");
-      const errorDescription = searchParams.get("error_description");
       if (errorParam) {
-        if (isMounted) {
-          setErrorMsg(errorDescription || errorParam || "Authentication was cancelled or failed.");
-        }
+        fail("provider_error", errorParam);
         return;
       }
 
       const code = searchParams.get("insforge_code");
       if (!code) {
-        // Check if already authenticated
-        const { data } = await insforge.auth.getCurrentUser();
-        if (data?.user) {
-          router.replace("/dashboard");
-        } else {
-          if (isMounted) {
-            setErrorMsg("No authorization code provided in the callback.");
-          }
-        }
+        await redirectIfSignedInOrFail("missing_code");
         return;
       }
 
       try {
         const { data, error } = await insforge.auth.exchangeOAuthCode(code);
         if (error || !data) {
-          if (isMounted) {
-            setErrorMsg(error?.message || "Failed to exchange authorization code.");
-          }
+          console.error("[OAuthCallback] exchange failed:", error);
+          // A reload of this page reuses a consumed code, but the session may already exist.
+          await redirectIfSignedInOrFail("exchange_failed");
           return;
         }
 
@@ -80,23 +98,16 @@ function CallbackContent() {
           });
         }
 
-        // Redirect to dashboard
         router.replace("/dashboard");
         router.refresh();
       } catch (err) {
         if (isPostHogConfigured) posthog.captureException(err);
         console.error("[OAuthCallback] exchange error:", err);
-        if (isMounted) {
-          setErrorMsg("An unexpected error occurred during authentication.");
-        }
+        fail("unexpected_error");
       }
     }
 
     handleOAuthCallback();
-
-    return () => {
-      isMounted = false;
-    };
   }, [searchParams, router]);
 
   return (

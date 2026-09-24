@@ -78,6 +78,12 @@ Update this file after every completed feature. Any AI agent reading this should
   - Integrated `posthog.identify()` upon successful authentication and user sync
   - Integrated `posthog.reset()` on user sign out
   - Wired event tracking: `oauth_login_started`, `oauth_login_completed`, `user_logged_out`, `auth_session_synced`, `auth_session_cleared`, and `homepage_cta_clicked` (Hero, Navbar, and BottomCta)
+- Fixed OAuth callback false failures in `app/(auth)/callback/page.tsx`:
+  - The page handles each callback URL once (a `useRef` latch). React runs effects twice in development, and the second exchange failed because the PKCE verifier is single-use.
+  - `lib/insforge-client.ts` sets `auth.detectOAuthCallback: false`. The SDK exchanged the code on its own at startup, which also consumed the verifier and removed `insforge_code` from the URL.
+  - If an exchange fails but a session already exists (for example, on reload), the page redirects to `/dashboard`.
+  - The failure screen shows fixed, human-readable messages, not raw backend error text.
+  - Added `oauth_login_failed` with a `reason` property (`provider_error`, `missing_code`, `exchange_failed`, `unexpected_error`).
 - Implemented Feature 04 Database Schema:
   - Created all 4 core tables in InsForge PostgreSQL: `profiles`, `agent_runs`, `jobs`, `agent_logs` matching `context/architecture.md` specifications.
   - Configured Row Level Security (RLS) on all 4 tables with 16 granular policies scoping access to `auth.uid() = id` (for profiles) and `auth.uid() = user_id` (for agent_runs, jobs, agent_logs).
