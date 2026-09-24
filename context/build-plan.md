@@ -128,9 +128,13 @@ Extract from Resume button — Groq (llama-3.3-70b-versatile) reads uploaded PDF
 
 **Logic:**
 
-- pdf-parse extracts raw text from uploaded PDF buffer
+- POST /api/resume/extract with the PDF as `resume` form field (PDF only, max 5 MB)
+- pdf-parse extracts raw text from uploaded PDF buffer — `pdf-parse` must stay in `serverExternalPackages` in next.config.ts
 - If extracted text is empty or too short — return error: "Could not extract text from this PDF. Please try a different file."
-- Groq reads extracted text and returns structured JSON matching all profile field names
+- Resume text truncated to 12,000 characters before the Groq call
+- Groq reads extracted text and returns structured JSON matching all profile field names — `max_tokens: 2000`, one retry on invalid JSON
+- Each failure cause returns its own user message and `reason` code (password-protected, invalid PDF, no text, AI busy, AI invalid JSON, AI unavailable)
+- PostHog events: `resume_extraction_attempted`, `resume_extraction_completed`, `resume_extraction_failed` (with `reason`)
 - Form fields populated with extracted data
 - User saves manually after reviewing
 

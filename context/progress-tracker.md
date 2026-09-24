@@ -25,7 +25,7 @@ Update this file after every completed feature. Any AI agent reading this should
 
 - [ ] 05 Profile Page — Full UI
 - [ ] 06 Profile Save Logic
-- [ ] 07 AI Profile Extraction from Resume
+- [ ] 07 AI Profile Extraction from Resume — API route done (`app/api/resume/extract`); profile page button wiring pending
 - [ ] 08 Resume PDF Generation from Profile
 
 ### Phase 3 — Find Jobs Page
@@ -85,6 +85,11 @@ Update this file after every completed feature. Any AI agent reading this should
   - Implemented `handle_new_user` trigger on `auth.users` to automatically populate new user profiles upon OAuth registration, and backfilled existing user account.
   - Created private `resumes` storage bucket with authenticated access requirement.
   - Created TypeScript database definitions in `types/database.ts` and re-exported via `types/index.ts`.
+- Implemented Feature 07 API route (server side only):
+  - `agent/resume-extractor.ts` extracts PDF text with pdf-parse v2 and structures it with Groq (`max_tokens: 2000`, input truncated to 12,000 characters, one retry on invalid JSON, sanitized output).
+  - `app/api/resume/extract/route.ts` requires a signed-in user, validates the upload, returns `{ profile }` or `{ error, reason }`, and captures `resume_extraction_attempted`, `resume_extraction_completed`, and `resume_extraction_failed`.
+  - Added `pdf-parse` to `serverExternalPackages` in `next.config.ts` — without it, `next dev` cannot load the pdfjs worker and every PDF fails to parse.
+  - Declared `pdf-parse` and `groq-sdk` in `package.json`.
 
 ---
 

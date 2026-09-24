@@ -538,7 +538,7 @@ const result = JSON.parse(response.choices[0].message.content!);
 - Job matching + scoring: `300`
 - Company research synthesis: `800`
 - Resume generation: `1000`
-- Profile extraction from resume: `800`
+- Profile extraction from resume: `2000` — a profile with 3 roles overflows `800`, and Groq then fails with `json_validate_failed`
 
 **Rules:**
 
@@ -546,6 +546,8 @@ const result = JSON.parse(response.choices[0].message.content!);
 - Always use `response_format: { type: 'json_object' }` for structured data
 - Always parse `response.choices[0].message.content` as string — even with json_object it returns a string
 - Always validate parsed JSON before using — wrap in try/catch
+- Always set `max_tokens` and truncate long input text before the call
+- Retry once when `JSON.parse` fails, `finish_reason` is `'length'`, or Groq returns a 400 with code `json_validate_failed` — then return a clear error to the user
 - Match threshold is always `MATCH_THRESHOLD` from `lib/utils.ts` — never hardcode 70
 - Company research synthesis must always return a complete dossier — never return empty even if browser research failed
 
@@ -670,28 +672,42 @@ Only use these — others are silently ignored:
 
 **Check first:** Check AGENTS.md for an installed pdf-parse skill.
 
+The project uses pdf-parse v2 (`PDFParse` class). The v1 default-export pattern (`import pdf from "pdf-parse"`) does not work with v2.
+
+### Required Next.js config
+
+pdf-parse loads the pdfjs-dist worker file from disk. When Next.js bundles pdf-parse, `next dev` cannot find that file and every PDF fails to parse. Keep pdf-parse in `serverExternalPackages`:
+
+```typescript
+// next.config.ts
+const nextConfig: NextConfig = {
+  serverExternalPackages: ["pdf-parse"],
+};
+```
+
 ### Extract Text from Uploaded Resume
 
 ```typescript
-import pdf from "pdf-parse";
+import { InvalidPDFException, PasswordException, PDFParse } from "pdf-parse";
 
-// In API route handling resume upload
-export async function POST(req: NextRequest) {
-  const formData = await req.formData();
-  const file = formData.get("resume") as File;
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-
-  const pdfData = await pdf(buffer);
-  const extractedText = pdfData.text; // raw text content
-
+const parser = new PDFParse({ data: new Uint8Array(buffer) });
+try {
+  const result = await parser.getText({ pageJoiner: "" });
+  const extractedText = result.text; // raw text content
   // Send to Groq (llama-3.3-70b-versatile) for structured extraction
+} catch (error) {
+  // PasswordException, InvalidPDFException, or other parse errors
+} finally {
+  await parser.destroy(); // always free memory
 }
 ```
+
+The full pattern lives in `agent/resume-extractor.ts`, used by `app/api/resume/extract/route.ts`.
 
 **Rules:**
 
 - Server-side only — never import in client components
-- `pdfData.text` is raw unformatted text — Groq (llama-3.3-70b-versatile) handles the structure extraction
-- Always handle parse errors — some PDFs are image-based and return empty text
-- If `pdfData.text` is empty or very short — return error to user: "Could not extract text from this PDF. Please try a different file."
+- Never remove `pdf-parse` from `serverExternalPackages` in `next.config.ts`
+- `result.text` is raw unformatted text — Groq (llama-3.3-70b-versatile) handles the structure extraction
+- Always handle parse errors — return a separate message for password-protected, invalid, and image-only PDFs
+- If the text is empty or very short — return error to user: "Could not extract text from this PDF. Please try a different file."

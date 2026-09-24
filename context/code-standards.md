@@ -228,11 +228,15 @@ All PostHog events must use these exact event names. Never invent new event name
 | `job_found`          | Each job discovered and saved              | userId, source, matchScore |
 | `profile_completed`  | User saves complete profile for first time | userId                     |
 | `company_researched` | Company research dossier generated         | userId, jobId, company     |
+| `resume_extraction_attempted` | Extract from Resume request received | userId |
+| `resume_extraction_completed` | Profile fields extracted from resume | userId, fieldsExtracted, resumeChars |
+| `resume_extraction_failed` | Extract from Resume request failed | userId, reason |
 
-These four events are the only events in this project. Do not add more without updating this list first.
+These are the only product events in this project. Do not add more without updating this list first.
 
 `job_found` powers the Jobs Found Over Time and Match Score Distribution dashboard charts.
 `company_researched` powers the Company Research Activity dashboard chart.
+`resume_extraction_*` events measure the Extract from Resume success rate. Group `resume_extraction_failed` by `reason` to find the failing step.
 Always fire these with correct properties.
 
 ---

@@ -60,6 +60,7 @@
 │   ├── research.ts                        → Company research — Browserbase + Stagehand + Groq
 │   ├── matcher.ts                         → Groq job matching logic
 │   ├── extractor.ts                       → Groq job description extraction + structuring
+│   ├── resume-extractor.ts                → pdf-parse resume text + Groq profile extraction
 │   └── types.ts                           → Agent-specific TypeScript types
 ├── actions/
 │   ├── profile.ts                         → Profile save + update
