@@ -17,15 +17,6 @@ type FailureReason =
   | "file_too_large"
   | "unexpected_error";
 
-const REQUEST_FAILURES: Record<
-  "missing_file" | "not_pdf" | "file_too_large",
-  string
-> = {
-  missing_file: "No resume file was received. Please select a PDF.",
-  not_pdf: "Only PDF files are supported.",
-  file_too_large: "This PDF is larger than 5 MB. Please upload a smaller file.",
-};
-
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const insforge = await createInsforgeServer();
   const { data: authData } = await insforge.auth.getCurrentUser();
@@ -62,13 +53,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const formData = await request.formData().catch(() => null);
   const file = formData?.get("resume");
   if (!(file instanceof File) || file.size === 0) {
-    return fail("missing_file", REQUEST_FAILURES.missing_file, 400);
+    return fail("missing_file", "No resume file was received. Please select a PDF.", 400);
   }
   if (file.type !== "application/pdf") {
-    return fail("not_pdf", REQUEST_FAILURES.not_pdf, 400);
+    return fail("not_pdf", "Only PDF files are supported.", 400);
   }
   if (file.size > MAX_RESUME_BYTES) {
-    return fail("file_too_large", REQUEST_FAILURES.file_too_large, 400);
+    return fail(
+      "file_too_large",
+      "This PDF is larger than 5 MB. Please upload a smaller file.",
+      400,
+    );
   }
 
   try {
