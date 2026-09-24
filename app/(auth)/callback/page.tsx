@@ -26,21 +26,23 @@ function CallbackContent() {
   const handledCallbackRef = useRef<string | null>(null);
 
   useEffect(() => {
-    function fail(reason: FailureReason, message: string, providerError?: string): void {
+    function fail(reason: FailureReason, providerError?: string): void {
       if (isPostHogConfigured) {
         posthog.capture("oauth_login_failed", {
           reason,
           provider_error: providerError,
         });
       }
-      setErrorMsg(message);
+      setErrorMsg(reason === "provider_error" ? CANCELLED_MESSAGE : GENERIC_FAILURE_MESSAGE);
     }
 
-    async function redirectIfSignedIn(): Promise<boolean> {
+    async function redirectIfSignedInOrFail(reason: FailureReason): Promise<void> {
       const { data } = await insforge.auth.getCurrentUser();
-      if (!data?.user) return false;
-      router.replace("/dashboard");
-      return true;
+      if (data?.user) {
+        router.replace("/dashboard");
+      } else {
+        fail(reason);
+      }
     }
 
     async function handleOAuthCallback(): Promise<void> {
@@ -52,15 +54,13 @@ function CallbackContent() {
 
       const errorParam = searchParams.get("error");
       if (errorParam) {
-        fail("provider_error", CANCELLED_MESSAGE, errorParam);
+        fail("provider_error", errorParam);
         return;
       }
 
       const code = searchParams.get("insforge_code");
       if (!code) {
-        if (!(await redirectIfSignedIn())) {
-          fail("missing_code", GENERIC_FAILURE_MESSAGE);
-        }
+        await redirectIfSignedInOrFail("missing_code");
         return;
       }
 
@@ -69,9 +69,7 @@ function CallbackContent() {
         if (error || !data) {
           console.error("[OAuthCallback] exchange failed:", error);
           // A reload of this page reuses a consumed code, but the session may already exist.
-          if (!(await redirectIfSignedIn())) {
-            fail("exchange_failed", GENERIC_FAILURE_MESSAGE);
-          }
+          await redirectIfSignedInOrFail("exchange_failed");
           return;
         }
 
@@ -105,7 +103,7 @@ function CallbackContent() {
       } catch (err) {
         if (isPostHogConfigured) posthog.captureException(err);
         console.error("[OAuthCallback] exchange error:", err);
-        fail("unexpected_error", GENERIC_FAILURE_MESSAGE);
+        fail("unexpected_error");
       }
     }
 
