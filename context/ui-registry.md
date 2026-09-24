@@ -167,5 +167,22 @@ Last updated: 2026-09-18
 **Pattern notes:**
 Uses the same `max-w-md` centered card layout as `LoginPage` for visual continuity during the OAuth redirect lifecycle. Errors feature a circular alert badge (`w-12 h-12 rounded-full bg-error-light/20 text-error`).
 
+### ComingSoon
 
+File: `components/layout/ComingSoon.tsx`
+Last updated: 2026-09-24
 
+| Property         | Class |
+| ---------------- | ----- |
+| Background       | `bg-background` (page layout), `bg-surface` (card) |
+| Border           | `border border-border` (card) |
+| Border radius    | `rounded-2xl` (card), `rounded-full` (icon badge), `rounded-lg` (CTA) |
+| Text — primary   | `text-text-primary` (`text-base font-semibold`) |
+| Text — secondary | `text-text-muted` (`text-sm`) |
+| Spacing          | `max-w-[1440px] mx-auto p-8` (main), `p-6` (card), `py-16` (content) |
+| Hover state      | `hover:bg-accent-dark` (CTA) |
+| Shadow           | `shadow-sm` |
+| Accent usage     | `bg-accent-muted text-accent` (icon badge), `bg-accent text-accent-foreground` (CTA) |
+
+**Pattern notes:**
+Placeholder for a route that the Navbar links to before its feature is built. Used by `app/dashboard/page.tsx` and `app/find-jobs/page.tsx`. Takes a Lucide `icon`, a `title`, and a `description`. Delete it when no route uses it.

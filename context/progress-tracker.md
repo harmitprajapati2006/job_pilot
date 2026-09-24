@@ -85,6 +85,10 @@ Update this file after every completed feature. Any AI agent reading this should
   - Implemented `handle_new_user` trigger on `auth.users` to automatically populate new user profiles upon OAuth registration, and backfilled existing user account.
   - Created private `resumes` storage bucket with authenticated access requirement.
   - Created TypeScript database definitions in `types/database.ts` and re-exported via `types/index.ts`.
+- Added placeholder routes for `/dashboard` and `/find-jobs`:
+  - The Navbar, the homepage CTAs, and the post-login redirect already link to these routes, so without a page each click showed the framework 404.
+  - Both pages render the shared `ComingSoon` component (`components/layout/ComingSoon.tsx`) with the Navbar, a card that explains the upcoming feature, a "Set up your profile" CTA, and the Footer.
+  - Replace each placeholder with the real page in feature 09 (Find Jobs) and feature 14 (Dashboard).
 
 ---
 
